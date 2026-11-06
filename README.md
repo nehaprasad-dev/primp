@@ -1,37 +1,39 @@
-# Primp 💅
+# Primp
 
-Enquiry-to-invoice CRM for **Tropical Salon** (Pant Nagar, Ghatkopar East, Mumbai) — built for the **ProtoRun** hackathon.
+Enquiry-to-invoice CRM for Tropical Salon (Pant Nagar, Ghatkopar East, Mumbai). Built for the ProtoRun hackathon.
 
-Every customer enquiry — Meta ad, Instagram, WhatsApp, or walk-in — lands in one CRM, gets auto-scored by booking intent, gets follow-up reminders, and flows through booking to an auto-generated invoice. The exact *enquiry → invoice* loop ProtoRun judges on.
+Every enquiry — from a Meta ad, Instagram, WhatsApp, or a walk-in — lands in one CRM, gets scored by booking intent, gets follow-up reminders, and moves through booking to an auto-generated invoice.
 
-## Run it
+## Run
 
 ```bash
 npm install
-npm run dev     # http://localhost:3000
+npm run dev      # http://localhost:3000
 ```
 
-Production: `npm run build && npm start`. Data lives in a local SQLite file at `data/primp.db` (auto-created and seeded with Tropical Salon's service menu on first run).
+Production: `npm run build && npm start`.
+
+Data is stored in a local SQLite file at `data/primp.db`, created and seeded with the salon's service menu on first run.
 
 ## Pages
 
-| Page | What it does |
+| Route | Purpose |
 |---|---|
-| `/` | Dashboard — follow-ups due now, conversion %, revenue today / this month, leads by source |
-| `/leads` | Capture + list enquiries; every lead is auto-scored 0–100 (Hot/Warm/Cold) |
-| `/leads/[id]` | Lead timeline, notes, follow-up snooze, convert to booking |
-| `/bookings` | Mark a service completed — the invoice is generated automatically |
+| `/` | Dashboard: due follow-ups, conversion rate, revenue (today and month), leads by source |
+| `/leads` | Capture and list enquiries; each lead is scored 0-100 |
+| `/leads/[id]` | Lead timeline, notes, follow-up actions, convert to booking |
+| `/bookings` | Mark a service complete; the invoice is generated automatically |
 | `/invoices` | Collect payments; printable invoice at `/invoices/[id]` |
-| `/enquiry` | **Public landing page for Meta/Instagram ads** — submissions land straight in the CRM as scored leads |
+| `/enquiry` | Public landing page for ads; submissions enter the CRM as scored leads |
 
 ## Lead scoring
 
-Rule-based, transparent: source (walk-in/referral 25, Meta ad 20, WhatsApp 15, Instagram 10) + named a service (+20) + asked price (+20) + asked for a date (+25) + reachable phone (+10) + high-value service like bridal/color/spa (+15), capped at 100. Hot ≥ 70, Warm ≥ 40.
+Rule-based and transparent. Points for source (walk-in and referral 25, Meta ad 20, WhatsApp 15, Instagram 10), naming a service (+20), asking price (+20), asking for a date (+25), a reachable phone (+10), and a high-value service such as bridal, colour, or spa (+15). Capped at 100. Hot >= 70, Warm >= 40, Cold below 40. See `lib/scoring.ts`.
 
 ## Follow-ups
 
-Every new lead gets a follow-up due the next day. "Followed up ✓" snoozes it 2 days. Overdue follow-ups surface at the top of the dashboard — so no enquiry is ever silently dropped, which is the problem this app exists to fix.
+Each new lead gets a follow-up due the next day. "Followed up" snoozes it two days. Overdue follow-ups appear at the top of the dashboard, so no enquiry is dropped.
 
 ## Stack
 
-Next.js 15 (App Router, server actions) · better-sqlite3 · no external services required.
+Next.js 15 (App Router, server actions), better-sqlite3. No external services required.
