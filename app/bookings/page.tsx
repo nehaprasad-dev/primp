@@ -1,6 +1,7 @@
 import Link from "next/link";
 import db from "@/lib/db";
 import { cancelBooking, completeBooking } from "@/lib/actions";
+import { bookingMessage, waLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,10 @@ export default function BookingsPage() {
                 <td>
                   {b.status === "Scheduled" && (
                     <>
+                      {(() => {
+                        const link = waLink(b.phone, bookingMessage(b.lead_name, b.service_name, b.scheduled_at));
+                        return link ? <><a className="btn" href={link} target="_blank" rel="noopener noreferrer">Confirm on WhatsApp</a>{" "}</> : null;
+                      })()}
                       <form className="inline" action={completeBooking}>
                         <input type="hidden" name="booking_id" value={b.id} />
                         <button className="primary">Complete → invoice</button>

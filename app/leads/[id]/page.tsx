@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import db, { type Activity, type Lead, type Service } from "@/lib/db";
 import { tier } from "@/lib/scoring";
-import { addNote, createBooking, markContacted, markLost } from "@/lib/actions";
+import { addNote, createBooking, markContacted, markLost, whatsappFollowUp } from "@/lib/actions";
+import { bookingMessage, waLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +35,15 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
 
       {lead.status !== "Lost" && lead.status !== "Invoiced" && (
         <p>
+          {lead.phone && (
+            <form className="inline" action={whatsappFollowUp}>
+              <input type="hidden" name="lead_id" value={lead.id} />
+              <button className="primary">Follow up on WhatsApp</button>
+            </form>
+          )}{" "}
           <form className="inline" action={markContacted}>
             <input type="hidden" name="lead_id" value={lead.id} />
-            <button>Followed up ✓ (snooze 2 days)</button>
+            <button>Called ✓ (snooze 2 days)</button>
           </form>{" "}
           <form className="inline" action={markLost}>
             <input type="hidden" name="lead_id" value={lead.id} />
@@ -69,16 +76,20 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
         <>
           <h2>Bookings</h2>
           <table>
-            <thead><tr><th>Service</th><th>When</th><th>Amount</th><th>Status</th></tr></thead>
+            <thead><tr><th>Service</th><th>When</th><th>Amount</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {bookings.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.service_name}</td>
-                  <td>{b.scheduled_at}</td>
-                  <td>₹{b.price.toLocaleString("en-IN")}</td>
-                  <td><span className={`badge ${b.status === "Completed" ? "green" : b.status === "Cancelled" ? "grey" : "warm"}`}>{b.status}</span></td>
-                </tr>
-              ))}
+              {bookings.map((b) => {
+                const confirm = b.status === "Scheduled" ? waLink(lead.phone, bookingMessage(lead.name, b.service_name, b.scheduled_at)) : null;
+                return (
+                  <tr key={b.id}>
+                    <td>{b.service_name}</td>
+                    <td>{b.scheduled_at}</td>
+                    <td>₹{b.price.toLocaleString("en-IN")}</td>
+                    <td><span className={`badge ${b.status === "Completed" ? "green" : b.status === "Cancelled" ? "grey" : "warm"}`}>{b.status}</span></td>
+                    <td>{confirm && <a className="btn" href={confirm} target="_blank" rel="noopener noreferrer">Send confirmation</a>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </>

@@ -5,7 +5,7 @@ import { createLead } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
-const SOURCES = ["Meta Ad", "Instagram", "WhatsApp", "Walk-in", "Referral"];
+const SOURCES = ["Meta Ad", "Instagram", "WhatsApp", "Walk-in", "Referral", "Website"];
 
 export default function LeadsPage() {
   const leads = db.prepare("SELECT * FROM leads ORDER BY score DESC, id DESC").all() as Lead[];

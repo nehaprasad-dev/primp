@@ -1,19 +1,20 @@
 import Link from "next/link";
 import db from "@/lib/db";
 import { markPaid } from "@/lib/actions";
+import { invoiceMessage, waLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
 type Row = {
   id: number; amount: number; status: string; created_at: string; paid_at: string | null;
-  lead_id: number; lead_name: string; service_name: string;
+  lead_id: number; lead_name: string; phone: string; service_name: string;
 };
 
 export default function InvoicesPage() {
   const rows = db
     .prepare(
       `SELECT i.id, i.amount, i.status, i.created_at, i.paid_at,
-              l.id AS lead_id, l.name AS lead_name, s.name AS service_name
+              l.id AS lead_id, l.name AS lead_name, l.phone, s.name AS service_name
        FROM invoices i
        JOIN leads l ON l.id = i.lead_id
        JOIN bookings b ON b.id = i.booking_id
@@ -48,7 +49,12 @@ export default function InvoicesPage() {
                       <input type="hidden" name="invoice_id" value={i.id} />
                       <button className="primary">Mark paid</button>
                     </form>
-                  )}
+                  )}{" "}
+                  {(() => {
+                    const no = `INV-${String(i.id).padStart(4, "0")}`;
+                    const link = waLink(i.phone, invoiceMessage(i.lead_name, no, i.service_name, i.amount, i.status === "Paid"));
+                    return link ? <a className="btn" href={link} target="_blank" rel="noopener noreferrer">Send on WhatsApp</a> : null;
+                  })()}
                 </td>
               </tr>
             ))}

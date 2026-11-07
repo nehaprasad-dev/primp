@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import db from "./db";
-import type { Service } from "./db";
-import { scoreLead } from "./scoring";
+import type { Lead, Service } from "./db";
+import { insertLead } from "./leads";
+import { followUpMessage, waLink } from "./whatsapp";
 
 function revalidateAll() {
   ["/", "/leads", "/bookings", "/invoices"].forEach((p) => revalidatePath(p));
@@ -17,23 +18,46 @@ export async function createLead(formData: FormData) {
   const source = String(formData.get("source") ?? "Walk-in");
   const service_interest = String(formData.get("service_interest") ?? "").trim();
   const asked_price = formData.get("asked_price") === "on";
-  const asked_date = formData.get("asked_date") === "on";
-  const notes = String(formData.get("notes") ?? "").trim();
+  const when = String(formData.get("when") ?? "");
+  const asked_date = formData.get("asked_date") === "on" || when === "This week" || when === "Next week";
+  const notes = [when && `Preferred: ${when}`, String(formData.get("notes") ?? "").trim()]
+    .filter(Boolean)
+    .join(". ");
+  const campaign = String(formData.get("campaign") ?? "").trim().slice(0, 100);
   const fromPublic = formData.get("from_public") === "1";
 
-  const score = scoreLead({ source, service_interest, asked_price, asked_date, phone });
-  const info = db
-    .prepare(
-      `INSERT INTO leads (name, phone, source, service_interest, asked_price, asked_date, notes, score, next_follow_up)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime','+1 day'))`
-    )
-    .run(name, phone, source, service_interest, asked_price ? 1 : 0, asked_date ? 1 : 0, notes, score);
-  db.prepare("INSERT INTO activities (lead_id, kind, body) VALUES (?, 'system', ?)").run(
-    info.lastInsertRowid,
-    `Lead captured from ${source}. Auto-scored ${score}/100. Follow-up scheduled for tomorrow.`
-  );
+  insertLead({ name, phone, source, service_interest, asked_price, asked_date, notes, campaign });
   revalidateAll();
   if (fromPublic) redirect("/enquiry?sent=1");
+}
+
+export async function whatsappFollowUp(formData: FormData) {
+  const leadId = Number(formData.get("lead_id"));
+  const lead = db.prepare("SELECT * FROM leads WHERE id = ?").get(leadId) as Lead | undefined;
+  if (!lead) return;
+  const svc = db.prepare("SELECT price FROM services WHERE name = ?").get(lead.service_interest) as
+    | { price: number }
+    | undefined;
+  const link = waLink(lead.phone, followUpMessage(lead, svc?.price));
+  if (!link) return;
+  db.prepare(
+    `UPDATE leads SET status = CASE WHEN status = 'New' THEN 'Contacted' ELSE status END,
+     next_follow_up = datetime('now','localtime','+2 day') WHERE id = ?`
+  ).run(leadId);
+  db.prepare("INSERT INTO activities (lead_id, kind, body) VALUES (?, 'follow_up', ?)").run(
+    leadId,
+    "WhatsApp follow-up sent (message auto-written by Primp). Next follow-up in 2 days."
+  );
+  revalidateAll();
+  redirect(link);
+}
+
+export async function setAdSpend(formData: FormData) {
+  const spend = Math.max(0, Math.round(Number(formData.get("ad_spend")) || 0));
+  db.prepare(
+    "INSERT INTO settings (key, value) VALUES ('ad_spend', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+  ).run(String(spend));
+  revalidatePath("/");
 }
 
 export async function addNote(formData: FormData) {

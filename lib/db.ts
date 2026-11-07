@@ -59,6 +59,17 @@ CREATE TABLE IF NOT EXISTS invoices (
 );
 `);
 
+// Columns added after the first release; ALTER keeps existing databases working.
+const leadCols = (db.prepare("PRAGMA table_info(leads)").all() as { name: string }[]).map((c) => c.name);
+if (!leadCols.includes("campaign")) db.exec("ALTER TABLE leads ADD COLUMN campaign TEXT NOT NULL DEFAULT ''");
+if (!leadCols.includes("external_id")) db.exec("ALTER TABLE leads ADD COLUMN external_id TEXT");
+db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+
+export function getSetting(key: string, fallback = ""): string {
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row?.value ?? fallback;
+}
+
 // Seed Tropical Salon's service menu once
 const count = (db.prepare("SELECT COUNT(*) AS c FROM services").get() as { c: number }).c;
 if (count === 0) {
@@ -88,7 +99,7 @@ export type Service = { id: number; name: string; price: number; category: strin
 export type Lead = {
   id: number; name: string; phone: string; source: string; service_interest: string;
   asked_price: number; asked_date: number; notes: string; score: number; status: string;
-  created_at: string; next_follow_up: string | null;
+  created_at: string; next_follow_up: string | null; campaign: string; external_id: string | null;
 };
 export type Booking = {
   id: number; lead_id: number; service_id: number; scheduled_at: string; status: string; created_at: string;
