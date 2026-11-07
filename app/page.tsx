@@ -1,6 +1,7 @@
 import Link from "next/link";
 import db, { getSetting, type Lead } from "@/lib/db";
 import { tier } from "@/lib/scoring";
+import { getBranches } from "@/lib/salon";
 import { markContacted, setAdSpend, whatsappFollowUp } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,20 @@ export default function Dashboard() {
     )
     .all() as Lead[];
 
+  const byBranch = db
+    .prepare(
+      `SELECT COALESCE(b.name, 'Not decided') AS name, COUNT(l.id) leads,
+              SUM(l.status IN ('Booked','Invoiced')) booked,
+              COALESCE((SELECT SUM(i.amount) FROM invoices i JOIN bookings bk ON bk.id = i.booking_id
+                        WHERE i.status = 'Paid' AND bk.branch_id IS b.id), 0) revenue
+       FROM leads l LEFT JOIN branches b ON b.id = l.branch_id
+       GROUP BY b.id ORDER BY leads DESC`
+    )
+    .all() as { name: string; leads: number; booked: number; revenue: number }[];
+
+  const branchesMissing = getBranches().filter((b) => !b.address || !b.whatsapp).length;
+  const unpricedServices = num("SELECT COUNT(*) n FROM services WHERE price IS NULL");
+
   const recent = db.prepare("SELECT * FROM leads ORDER BY id DESC LIMIT 6").all() as Lead[];
   const bySource = db
     .prepare("SELECT source, COUNT(*) c FROM leads GROUP BY source ORDER BY c DESC")
@@ -50,6 +65,18 @@ export default function Dashboard() {
     <main>
       <h1>Dashboard</h1>
       <p className="sub">Enquiry → follow-up → booking → invoice, sab ek jagah.</p>
+
+      {(branchesMissing > 0 || unpricedServices > 0) && (
+        <div className="alert">
+          Setup adhoora hai:
+          {branchesMissing > 0 && (
+            <> {branchesMissing} branch ka address ya WhatsApp (<Link href="/settings" style={{ textDecoration: "underline" }}>Salon setup</Link>).</>
+          )}
+          {unpricedServices > 0 && (
+            <> {unpricedServices} services ke prices (<Link href="/services" style={{ textDecoration: "underline" }}>Services</Link>).</>
+          )}
+        </div>
+      )}
 
       {dueFollowUps.length > 0 && (
         <div className="alert">
@@ -121,6 +148,20 @@ export default function Dashboard() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {byBranch.length > 0 && (
+        <>
+          <h2>By branch</h2>
+          <table>
+            <thead><tr><th>Branch</th><th>Leads</th><th>Booked</th><th>Paid revenue</th></tr></thead>
+            <tbody>
+              {byBranch.map((b) => (
+                <tr key={b.name}><td>{b.name}</td><td>{b.leads}</td><td>{b.booked}</td><td>{inr(b.revenue)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
 
       <h2>Leads by source</h2>

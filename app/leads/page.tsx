@@ -2,18 +2,25 @@ import Link from "next/link";
 import db, { type Lead } from "@/lib/db";
 import { tier } from "@/lib/scoring";
 import { createLead } from "@/lib/actions";
+import { getBranches } from "@/lib/salon";
 
 export const dynamic = "force-dynamic";
 
 const SOURCES = ["Meta Ad", "Instagram", "WhatsApp", "Walk-in", "Referral", "Website"];
 
 export default function LeadsPage() {
-  const leads = db.prepare("SELECT * FROM leads ORDER BY score DESC, id DESC").all() as Lead[];
+  const leads = db
+    .prepare(
+      `SELECT l.*, b.name AS branch_name FROM leads l LEFT JOIN branches b ON b.id = l.branch_id
+       ORDER BY l.score DESC, l.id DESC`
+    )
+    .all() as (Lead & { branch_name: string | null })[];
+  const branches = getBranches();
 
   return (
     <main>
       <h1>Leads</h1>
-      <p className="sub">Har enquiry yahan capture hoti hai — Instagram, WhatsApp, walk-in, ads. Score automatic lagta hai.</p>
+      <p className="sub">Har enquiry yahan capture hoti hai: Instagram, WhatsApp, walk-in, ads. Score automatic lagta hai.</p>
 
       <form className="panel" action={createLead}>
         <strong>+ New enquiry</strong>
@@ -21,11 +28,17 @@ export default function LeadsPage() {
           <label className="field">Name<input type="text" name="name" required placeholder="e.g. Priya Sharma" /></label>
           <label className="field">Phone / WhatsApp<input type="tel" name="phone" placeholder="98xxxxxxxx" /></label>
           <label className="field">Source
-            <select name="source" defaultValue="WhatsApp">
+            <select name="source" defaultValue="Instagram">
               {SOURCES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </label>
-          <label className="field">Service interest<input type="text" name="service_interest" placeholder="e.g. Gold Facial, Bridal" /></label>
+          <label className="field">Branch
+            <select name="branch_id" defaultValue="">
+              <option value="">Not decided</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
+          <label className="field">Service interest<input type="text" name="service_interest" placeholder="e.g. Balayage, HydraFacial" /></label>
         </div>
         <div className="row">
           <label className="check"><input type="checkbox" name="asked_price" /> Asked about price</label>
@@ -35,17 +48,21 @@ export default function LeadsPage() {
         <div><button className="primary">Capture lead</button></div>
       </form>
 
-      <h2>All leads ({leads.length})</h2>
+      <h2>
+        All leads ({leads.length}){" "}
+        {leads.length > 0 && <a className="btn" href="/api/export/leads" style={{ marginLeft: 8 }}>Download CSV</a>}
+      </h2>
       {leads.length === 0 ? (
         <p className="sub">Koi lead nahi abhi.</p>
       ) : (
         <table>
-          <thead><tr><th>Lead</th><th>Source</th><th>Interest</th><th>Score</th><th>Status</th><th>Next follow-up</th></tr></thead>
+          <thead><tr><th>Lead</th><th>Source</th><th>Branch</th><th>Interest</th><th>Score</th><th>Status</th><th>Next follow-up</th></tr></thead>
           <tbody>
             {leads.map((l) => (
               <tr key={l.id}>
                 <td><Link href={`/leads/${l.id}`}><strong>{l.name}</strong></Link><div className="sub-line">{l.phone || "no phone"}</div></td>
                 <td>{l.source}</td>
+                <td>{l.branch_name ?? "—"}</td>
                 <td>{l.service_interest || "—"}</td>
                 <td><span className={`badge ${tier(l.score).toLowerCase()}`}>{tier(l.score)} · {l.score}</span></td>
                 <td><span className={`badge ${l.status === "Lost" ? "grey" : l.status === "New" ? "cold" : "green"}`}>{l.status}</span></td>

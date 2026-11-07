@@ -1,7 +1,7 @@
 // Click-to-chat links (wa.me) with pre-written messages. No WhatsApp Business API needed:
 // staff tap the button, WhatsApp opens with the message ready, they press send.
 
-const SALON = "Tropical Salon, Pant Nagar (Ghatkopar East)";
+import { salonLabel } from "./salon";
 
 /** Normalises Indian numbers to the international format wa.me expects. */
 export function waNumber(phone: string): string | null {
@@ -20,21 +20,27 @@ export function waLink(phone: string, text: string): string | null {
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || "there";
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
-export function followUpMessage(lead: { name: string; service_interest: string; status: string }, price?: number) {
-  const hi = `Hi ${firstName(lead.name)}, this is ${SALON}.`;
+export function followUpMessage(
+  lead: { name: string; service_interest: string; status: string; branch_id: number | null },
+  price?: number | null
+) {
+  const hi = `Hi ${firstName(lead.name)}, this is ${salonLabel(lead.branch_id)}.`;
   if (lead.status !== "New") {
     return `${hi} Just checking in. Are you still interested in ${lead.service_interest || "a visit"}? We can hold a slot for you this week.`;
   }
   if (lead.service_interest) {
-    return `${hi} Thanks for asking about ${lead.service_interest}${price ? ` (${rupees(price)})` : ""}. We have slots open this week. Which day and time suit you? Reply and we'll book it.`;
+    const priceNote = price != null ? ` (${rupees(price)})` : "";
+    return `${hi} Thank you for your enquiry about ${lead.service_interest}${priceNote}. We have slots open this week. Which day and time suit you? Reply and we'll book it.`;
   }
-  return `${hi} Thanks for your enquiry! What would you like to book: hair, facial, makeup or something else? We'll send prices and open slots.`;
+  return `${hi} Thank you for your enquiry! Which service are you interested in: hair, colour, skin, spa or nails? We'll share details and open slots.`;
 }
 
-export function bookingMessage(name: string, service: string, when: string) {
-  return `Hi ${firstName(name)}, your ${service} at ${SALON} is confirmed for ${when}. See you then! Reply here if you need to reschedule.`;
+export function bookingMessage(name: string, service: string, when: string, branchId: number | null) {
+  return `Hi ${firstName(name)}, your ${service} at ${salonLabel(branchId)} is confirmed for ${when}. See you then! Reply here if you need to reschedule.`;
 }
 
-export function invoiceMessage(name: string, invoiceNo: string, service: string, amount: number, paid: boolean) {
-  return `Hi ${firstName(name)}, thank you for visiting ${SALON}! Invoice ${invoiceNo}: ${service}, ${rupees(amount)}${paid ? " (paid)" : " (due)"}. See you again soon.`;
+export function invoiceMessage(
+  name: string, invoiceNo: string, service: string, amount: number, paid: boolean, branchId: number | null
+) {
+  return `Hi ${firstName(name)}, thank you for visiting ${salonLabel(branchId)}! Invoice ${invoiceNo}: ${service}, ${rupees(amount)}${paid ? " (paid)" : " (due)"}. We hope to see you again soon.`;
 }
